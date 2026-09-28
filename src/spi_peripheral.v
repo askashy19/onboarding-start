@@ -1,0 +1,88 @@
+`default_nettype none
+
+module spi_peripheral (
+
+
+
+input  wire       clk,      // clock
+input  wire       rst_n,     // reset_n - low to reset
+
+//these are the three wire signals it is reading from the SPI bus
+
+input wire SCLK, // SPI clock
+input wire COPI, // SPI data in
+input wire nCS,  // SPI chip select
+
+//reverse of PWM think of the flow of ddata SPPI pin -> SPI -> 5 reg bytres -> PWM -> 16 pin output
+
+output reg [7:0] en_reg_out_7_0,
+output reg [7:0] en_reg_out_15_8,
+output reg [7:0] en_reg_pwm_7_0,
+output reg [7:0] en_reg_pwm_15_8,
+output reg [7:0] pwm_duty_cycle
+
+
+
+
+
+);
+
+// Synchronizer chains makes the SPI pins safe to use
+reg sclk_ff1; //sync 1
+reg sclk_ff2; //sync 2
+reg sclk_ff3; //sync 3
+
+reg ncs_ff1; //sync 1
+reg ncs_ff2; //sync 2
+reg ncs_ff3; //sync 3
+
+reg copi_ff1; //sync 1
+reg copi_ff2; //sync 2
+
+//making the 000000000 or wtv out put copying format form pwm peripheral.v
+
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        sclk_ff1 <= 1'b0;
+        sclk_ff2 <= 1'b0;
+        sclk_ff3 <= 1'b0;
+
+        ncs_ff1 <= 1'b1;
+        ncs_ff2 <= 1'b1;
+        ncs_ff3 <= 1'b1;
+
+        copi_ff1 <= 1'b0;
+        copi_ff2 <= 1'b0;
+
+        en_reg_out_7_0 <= 8'h00;
+        en_reg_out_15_8 <= 8'h00;
+        en_reg_pwm_7_0 <= 8'h00;
+        en_reg_pwm_15_8 <= 8'h00;
+        pwm_duty_cycle <= 8'h00;
+        
+    end else begin
+        sclk_ff1 <= SCLK;
+        sclk_ff2 <= sclk_ff1;
+        sclk_ff3 <= sclk_ff2;
+
+        ncs_ff1 <= nCS;
+        ncs_ff2 <= ncs_ff1;
+        ncs_ff3 <= ncs_ff2;
+
+        copi_ff1 <= COPI;
+        copi_ff2 <= copi_ff1;
+
+
+         en_reg_out_7_0 <= 8'h00;
+        en_reg_out_15_8 <= 8'h00;
+        en_reg_pwm_7_0 <= 8'h00;
+        en_reg_pwm_15_8 <= 8'h00;
+        pwm_duty_cycle <= 8'h00;
+        
+    end
+
+end
+
+
+
+endmodule
