@@ -49,6 +49,12 @@ wire ncs_rising  = ncs_ff2 & ~ncs_ff3;
 
 reg [15:0] shift_reg;//holding 16 bits of data
 reg [4:0] bit_counter;//needs to count up to 16 in NUMERICAL value
+
+//local param -->lowk claude made me make this
+localparam MAX_ADDRESS = 7'h04;
+
+//seven bits matching the address field width of the SPI protocol, 4 is the max address value for the 5 registers
+
 //making the 000000000 or wtv out put copying format form pwm peripheral.v
 
 always @(posedge clk or negedge rst_n) begin
@@ -86,11 +92,11 @@ always @(posedge clk or negedge rst_n) begin
         copi_ff2 <= copi_ff1;
 
 
-         en_reg_out_7_0 <= 8'h00;
-        en_reg_out_15_8 <= 8'h00;
-        en_reg_pwm_7_0 <= 8'h00;
-        en_reg_pwm_15_8 <= 8'h00;
-        pwm_duty_cycle <= 8'h00;
+        //  en_reg_out_7_0 <= 8'h00;
+        // en_reg_out_15_8 <= 8'h00;
+        // en_reg_pwm_7_0 <= 8'h00;
+        // en_reg_pwm_15_8 <= 8'h00;
+        // pwm_duty_cycle <= 8'h00;
 
         if (ncs_falling) begin
             bit_counter <= 5'd0;
@@ -99,6 +105,20 @@ always @(posedge clk or negedge rst_n) begin
         else if (sclk_rising && !ncs_ff2) begin
             shift_reg <= {shift_reg[14:0], copi_ff2};
             bit_counter <= bit_counter + 1;
+        end
+
+        else if (ncs_rising) begin
+            if (bit_counter == 5'd16 && shift_reg[15] && shift_reg[14:8] <= MAX_ADDRESS) begin
+                // Check the address and write to the corresponding register
+                case (shift_reg[14:8]) // Address is in bits [14:8]
+                    7'h00: en_reg_out_7_0 <= shift_reg[7:0];
+                    7'h01: en_reg_out_15_8 <= shift_reg[7:0];
+                    7'h02: en_reg_pwm_7_0 <= shift_reg[7:0];
+                    7'h03: en_reg_pwm_15_8 <= shift_reg[7:0];
+                    7'h04: pwm_duty_cycle <= shift_reg[7:0];
+                    default: ; // Do nothing for invalid addresses
+                endcase
+            end
         end
         
     end
