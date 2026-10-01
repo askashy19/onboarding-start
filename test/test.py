@@ -89,12 +89,12 @@ async def measure_pwm(dut):
     #first rise
         while (dut.uo_out.value[0] != 1):
             await ClockCycles(dut.clk, 1)
-        t1 = cocotb.utils.get_sim_time(unit="ns")
+        t1 = cocotb.utils.get_sim_time(units="ns")
 
     #fall
         while (dut.uo_out.value[0] != 0):
             await ClockCycles(dut.clk, 1)
-        t2 = cocotb.utils.get_sim_time(unit="ns")
+        t2 = cocotb.utils.get_sim_time(units="ns")
 
     #rise
         while (dut.uo_out.value[0] != 1):
