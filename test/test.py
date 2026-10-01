@@ -82,7 +82,29 @@ async def send_spi_transaction(dut, r_w, address, data):
     dut.ui_in.value = ui_in_logicarray(ncs, bit, sclk)
     await ClockCycles(dut.clk, 600)
     return ui_in_logicarray(ncs, bit, sclk)
+async def measure_pwm(dut):
+    #waiting for it to be low
+        while (dut.uo_out.value[0] != 0):
+            await ClockCycles(dut.clk, 1)
+    #first rise
+        while (dut.uo_out.value[0] != 1):
+            await ClockCycles(dut.clk, 1)
+        t1 = cocotb.utils.get_sim_time(unit="ns")
 
+    #fall
+        while (dut.uo_out.value[0] != 0):
+            await ClockCycles(dut.clk, 1)
+        t2 = cocotb.utils.get_sim_time(unit="ns")
+
+    #rise
+        while (dut.uo_out.value[0] != 1):
+            await ClockCycles(dut.clk, 1)
+        t3 = cocotb.utils.get_sim_time(unit="ns")
+
+    #values
+        period = t3-t1;
+        high = t2-t1;
+        return period,high
 @cocotb.test()
 async def test_spi(dut):
     dut._log.info("Start SPI test")
@@ -149,13 +171,114 @@ async def test_spi(dut):
 
     dut._log.info("SPI test completed successfully")
 
+
+
+#here 
+#start clock in both the tests
+#assert and release reset
+#write registers via send_s[pi_trans to get PWM acc running
+### What is PWM?
+
+#What is PWM?
+#Pulse Width Modulation (PWM)** is a technique used to control the average power delivered to a device by rapidly switching a signal between "high" (on) and "low" (off) states. The key parameters are:
+
+#Frequency**: How fast the signal switches (e.g., 3 kHz in this project). It is equal to the inverse of the period
+#Duty Cycle**: The percentage of time the signal is "high" during one period./#
 @cocotb.test()
 async def test_pwm_freq(dut):
     # Write your test here
-    dut._log.info("PWM Frequency test completed successfully")
+    dut._log.info("Start PWM FREQ test")
 
+    # Set the clock period to 100 ns (10 MHz)
+    clock = Clock(dut.clk, 100, units="ns")
+    cocotb.start_soon(clock.start())
+
+    # Reset
+    dut._log.info("Reset")
+    dut.ena.value = 1
+    ncs = 1
+    bit = 0
+    sclk = 0
+    dut.ui_in.value = ui_in_logicarray(ncs, bit, sclk)
+    dut.rst_n.value = 0
+    await ClockCycles(dut.clk, 5)
+    dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 5)
+
+    # Send SPI transactions to configure PWM
+    await send_spi_transaction(dut, 1, 0x00, 0xFF)
+    await send_spi_transaction(dut, 1, 0x02, 0xFF)
+    await send_spi_transaction(dut, 1, 0x04, 0x80)
+    await ClockCycles(dut.clk, 1000)
+
+    #proving the pin toggles
+    #for i in range(20):
+   #     await ClockCycles(dut.clk, 500)
+    #    dut._log.info(f"uo_out = {dut.uo_out.value}")
+
+    period, high = await measure_pwm(dut)
+    freq = 1e9/period
+    dut._log.info(f"Period = {period} ns, High time = {high} ns, Frequency = {freq} Hz")
+    assert 2970 <= freq <= 3030, f"Frequency {freq} Hz outside 2970-3030 Hz"
+    dut._log.info("PWM FREQ test completed successfully")
 
 @cocotb.test()
 async def test_pwm_duty(dut):
     # Write your test here
+    # Write your test here
+    dut._log.info("Start PWM Duty Cycle test")
+
+    # Set the clock period to 100 ns (10 MHz)
+    clock = Clock(dut.clk, 100, units="ns")
+    cocotb.start_soon(clock.start())
+
+    # Reset
+    dut._log.info("Reset")
+    dut.ena.value = 1
+    ncs = 1
+    bit = 0
+    sclk = 0
+    dut.ui_in.value = ui_in_logicarray(ncs, bit, sclk)
+    dut.rst_n.value = 0
+    await ClockCycles(dut.clk, 5)
+    dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 5)
+
+    # Send SPI transactions to configure PWM
+    await send_spi_transaction(dut, 1, 0x00, 0xFF)
+    await send_spi_transaction(dut, 1, 0x02, 0xFF)
+    await send_spi_transaction(dut, 1, 0x04, 0x80)
+    await ClockCycles(dut.clk, 1000)
+
+    #proving the pin toggles
+    #for i in range(20):
+   #     await ClockCycles(dut.clk, 500)
+    #    dut._log.info(f"uo_out = {dut.uo_out.value}")
+
+    period, high = await measure_pwm(dut)
+    
+    
+    duty = high/ period * 100
+    dut._log.info(f"duty = {duty} %")
+    assert abs(duty - 50) <= 1, f"Expected 50% duty cycle, got {duty}% which isnt 1% tolerance"
+
+    #case 2 0% meaning when its low so theres ntohing to detect?
+    await send_spi_transaction(dut,1,0x04,0x00)
+    await ClockCycles(dut.clk, 5000)
+    for i in range(4000):
+        await ClockCycles(dut.clk, 1)
+        assert  dut.uo_out.value[0] == 0, f"Expected 0, got {dut.uo_out.value[0]} at cycle {i}"
+
+    dut._log.info("0% duty cycle test is stays low")
+
+     #case 3 100% meaning when its hgigh so theres ntohing to detect?
+    await send_spi_transaction(dut,1,0x04,0xFF)
+    await ClockCycles(dut.clk, 5000)
+    for i in range(4000):
+        await ClockCycles(dut.clk, 1)
+        assert  dut.uo_out.value[0] == 1, f"Expected 1, got {dut.uo_out.value[0]} at cycle {i}"
+
+    dut._log.info("100% duty cycle test is stays high")
+    dut._log.info(f"Period = {period} ns, High time = {high} ns")
+    
     dut._log.info("PWM Duty Cycle test completed successfully")
